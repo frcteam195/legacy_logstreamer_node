@@ -213,15 +213,14 @@ file(GLOB_RECURSE executable_sources CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURC
 )
 convert_absolute_path(executable_sources "src")
 
-# file(GLOB_RECURSE test_sources CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURCE_DIR}/test"
-#      "*.cpp"
-# )
-# convert_absolute_path(test_sources "test")
+file(GLOB_RECURSE test_sources CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURCE_DIR}/test/src"
+     "*.cpp"
+)
+convert_absolute_path(test_sources "test/src")
 
 add_executable(${PROJECT_NAME} ${executable_sources})
 target_include_directories(${PROJECT_NAME} PUBLIC "include")
-target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
-target_link_libraries(${PROJECT_NAME} Threads::Threads)
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} Threads::Threads)
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 
@@ -229,8 +228,10 @@ add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EX
 ## Testing ##
 #############
 
-## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test ${test_sources})
-# if(TARGET ${PROJECT_NAME}-test)
-#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
-# endif()
+## Add gtest based cpp test target and link libraries.
+add_library(t${PROJECT_NAME} ${executable_sources})
+target_include_directories(t${PROJECT_NAME} PUBLIC "include")
+catkin_add_gtest(test_${PROJECT_NAME} ${test_sources})
+target_link_libraries(test_${PROJECT_NAME} ${catkin_LIBRARIES} Threads::Threads t${PROJECT_NAME})
+target_include_directories(test_${PROJECT_NAME} PUBLIC "test/include")
+add_dependencies(test_${PROJECT_NAME} ${PROJECT_NAME}_generate_messages_cpp)
