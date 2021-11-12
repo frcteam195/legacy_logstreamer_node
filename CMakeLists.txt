@@ -208,12 +208,6 @@ macro(convert_absolute_path file_list path_prefix)
   endforeach()
 endmacro()
 
-file(GLOB_RECURSE executable_headers CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURCE_DIR}/include"
-     "*.h"
-     "*.hpp"
-)
-convert_absolute_path(executable_headers "include")
-
 file(GLOB_RECURSE executable_sources CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURCE_DIR}/src"
      "*.cpp"
 )
@@ -224,7 +218,7 @@ convert_absolute_path(executable_sources "src")
 # )
 # convert_absolute_path(test_sources "test")
 
-add_executable(${PROJECT_NAME} ${executable_sources} ${executable_headers})
+add_executable(${PROJECT_NAME} ${executable_sources})
 target_include_directories(${PROJECT_NAME} PUBLIC "include")
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} Threads::Threads)
