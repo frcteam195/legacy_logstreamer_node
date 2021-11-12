@@ -213,16 +213,19 @@ file(GLOB_RECURSE executable_headers CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURC
      "*.hpp"
 )
 convert_absolute_path(executable_headers "include")
+
 file(GLOB_RECURSE executable_sources CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURCE_DIR}/src"
      "*.cpp"
 )
 convert_absolute_path(executable_sources "src")
 
-file(GLOB_RECURSE executable_sources CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURCE_DIR}/test"
-     "*.cpp"
-)
+# file(GLOB_RECURSE test_sources CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURCE_DIR}/test"
+#      "*.cpp"
+# )
+# convert_absolute_path(test_sources "test")
 
 add_executable(${PROJECT_NAME} ${executable_sources} ${executable_headers})
+target_include_directories(${PROJECT_NAME} PUBLIC "include")
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} Threads::Threads)
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
