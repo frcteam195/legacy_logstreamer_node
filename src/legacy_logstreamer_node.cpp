@@ -5,6 +5,7 @@
 #include <thread>
 #include <string>
 #include <mutex>
+#include <iostream>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -20,7 +21,7 @@ std::mutex lockMutex;
 ros::NodeHandle* node;
 bool runThread;
 
-void handlePacket(const OSCPP::Server::Packet& packet)
+void handlePacket(const OSCPP::Server::Packet& packet, sockaddr &recvFromAddr)
 {
     if (packet.isBundle()) {
         // Convert to bundle
@@ -32,7 +33,7 @@ void handlePacket(const OSCPP::Server::Packet& packet)
         // Iterate over all the packets and call handlePacket recursively.
         // Cuidado: Might lead to stack overflow!
         while (!packets.atEnd()) {
-            handlePacket(packets.next());
+            handlePacket(packets.next(), recvFromAddr);
         }
     } else {
         // Convert to message
@@ -46,24 +47,20 @@ void handlePacket(const OSCPP::Server::Packet& packet)
         // dispatch table based on std::unordered_map.
         if (msg == "/heartbeat")
 		{
-            const char* name = args.string();
-            const int32_t id = args.int32();
-            std::cout << "/heartbeat" << " "
-                      << name << " "
-                      << id << " ";
-            // Get the params array as an ArgStream
-            OSCPP::Server::ArgStream params(args.array());
-            while (!params.atEnd()) {
-                const char* param = params.string();
-                const float value = params.float32();
-                std::cout << param << ":" << value << " ";
+            sockaddr_in *tAddr = (sockaddr_in *)(&recvFromAddr);
+            std::string ipAddr(inet_ntoa(tAddr->sin_addr));
+            if (ipAddr == "0.0.0.0")
+            {
+                //Not valid, stop processing
+                return;
             }
+            std::cout << msg.address() << " ";
+            std::cout << ipAddr << " ";
             std::cout << std::endl;
         }
 		else
 		{
-            // Simply print unknown messages
-            //std::cout << "Unknown message: " << msg << std::endl;
+            //Unknown messages received
         }
     }
 }
@@ -98,6 +95,7 @@ void run_heartbeat_handler()
 			socklen_t recvFromAddrSize;
 			int numBytes = recvfrom(fd, &buffer, sizeof(buffer), MSG_WAITALL, &recvFromAddr, &recvFromAddrSize);
 			OSCPP::Server::Packet oscPacket(&buffer, numBytes);
+            handlePacket(oscPacket, recvFromAddr);
 		}
 		rate.sleep();
 	}
