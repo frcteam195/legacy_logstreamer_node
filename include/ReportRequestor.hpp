@@ -1,15 +1,23 @@
 #pragma once
 
-#include "arpa/inet.h"
+#include <arpa/inet.h>
+#include <string>
+
 #include "Timer.hpp"
 
 class ReportRequestor
 {
 public:
-    ReportRequestor(sockaddr_in inetAddress);
-    ReportRequestor(sockaddr_in inetAddress, int heartbeatTimeout);
+    ReportRequestor(sockaddr_in &inetAddress, int heartbeatTimeout = 4);
     
-    sockaddr_in getIpAddr();
+    sockaddr_in getIpAddr() const;
     bool isExpired();
     void pumpHeartbeat();
+    int getHeartbeatPeriod() const;
+
+    bool operator==(const ReportRequestor &other) const;
+
+private:
+    sockaddr_in mIPAddr;
+    ck::TimeoutTimer mTimeoutTimer;
 };

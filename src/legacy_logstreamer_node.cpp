@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 #include "oscpp/server.hpp"
+#include "oscpp/client.hpp"
 
 #include <thread>
 #include <string>
@@ -11,16 +12,41 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include "ReportRequestor.hpp"
+#include "ReportRequestorSet.hpp"
+
+#include "rio_control_node/Motor_Status.h"
+#include "rio_control_node/Motor_Control.h"
+#include "rio_control_node/Motor_Configuration.h"
+#include "rio_control_node/IMU_Data.h"
 
 #define PORT     5809
 #define MAXLINE 1024
-#define HOSTNAME "10.0.2.104"
+#define BUFSIZE 1500
 
 std::mutex lockMutex;
+ReportRequestorSet mReportRequestorSet;
 
 ros::NodeHandle* node;
 bool runThread;
+
+int fd;
+bool socketInitSuccess;
+
+size_t constructPacket(void* buffer, size_t size)
+{
+    OSCPP::Client::Packet packet(buffer, size);
+    packet
+        .openMessage("/LogData", 12)
+        .closeMessage();
+    return packet.size();
+}
+
+std::string sockaddrToIPStr(sockaddr &ipAddr)
+{
+    sockaddr_in *tAddr = (sockaddr_in *)(&ipAddr);
+    std::string ipStr(inet_ntoa(tAddr->sin_addr));
+    return ipStr;
+}
 
 void handlePacket(const OSCPP::Server::Packet& packet, sockaddr &recvFromAddr)
 {
@@ -49,15 +75,16 @@ void handlePacket(const OSCPP::Server::Packet& packet, sockaddr &recvFromAddr)
         if (msg == "/ReportRequestor")
 		{
             sockaddr_in *tAddr = (sockaddr_in *)(&recvFromAddr);
-            std::string ipAddr(inet_ntoa(tAddr->sin_addr));
-            if (ipAddr == "0.0.0.0")
+            tAddr->sin_family = AF_INET;
+            tAddr->sin_port = htons(PORT);
+            if (tAddr->sin_addr.s_addr == 0)
             {
                 //Not valid, stop processing
                 return;
             }
-            std::cout << msg.address() << " ";
-            std::cout << ipAddr << " ";
-            std::cout << std::endl;
+
+            std::lock_guard<std::mutex> lock(lockMutex);
+            mReportRequestorSet.add(*tAddr);
         }
 		else
 		{
@@ -66,16 +93,28 @@ void handlePacket(const OSCPP::Server::Packet& packet, sockaddr &recvFromAddr)
     }
 }
 
+bool socket_init()
+{
+    if (!socketInitSuccess)
+    {
+        fd = socket(AF_INET,SOCK_DGRAM,0);
+        if(fd<0){
+            ROS_ERROR("cannot open socket");
+            return false;
+        }
+        socketInitSuccess = true;
+    }
+    return socketInitSuccess;
+}
+
 void run_heartbeat_handler()
 {
-	char buffer[1500];
-	memset(buffer, 0, 1500);
+	char buffer[BUFSIZE];
+	memset(buffer, 0, BUFSIZE);
+
+    while (!socket_init()){}
 
 	sockaddr_in servaddr;
-    int fd = socket(AF_INET,SOCK_DGRAM,0);
-    if(fd<0){
-        ROS_ERROR("cannot open socket");
-    }
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = INADDR_ANY;
@@ -91,7 +130,6 @@ void run_heartbeat_handler()
 	while (runThread)
 	{
 		{
-			std::lock_guard<std::mutex> lock(lockMutex);
 			sockaddr recvFromAddr;
 			socklen_t recvFromAddrSize;
 			int numBytes = recvfrom(fd, &buffer, sizeof(buffer), MSG_WAITALL, &recvFromAddr, &recvFromAddrSize);
@@ -101,6 +139,50 @@ void run_heartbeat_handler()
 		rate.sleep();
 	}
 }
+
+void send_data_handler()
+{
+    char buffer[BUFSIZE];
+	memset(buffer, 0, BUFSIZE);
+
+    while (!socket_init()){}
+
+    ros::Rate rate(10);
+	while (runThread)
+	{
+		{
+            size_t packetSize = constructPacket(buffer, BUFSIZE);
+			std::lock_guard<std::mutex> lock(lockMutex);
+            mReportRequestorSet.forEach([&](ReportRequestor* r)
+            {
+                sockaddr_in s = r->getIpAddr();
+                size_t bytesSent = sendto(fd, buffer, packetSize, 0, (struct sockaddr*)&s, sizeof(s));
+            });
+		}
+		rate.sleep();
+	}
+}
+
+void motorStatusCallback(const rio_control_node::Motor_Status& msg)
+{
+
+}
+
+void imuDataCallback(const rio_control_node::IMU_Data& msg)
+{
+
+}
+
+void motorConfigurationCallback(const rio_control_node::Motor_Configuration& msg)
+{
+
+}
+
+void motorControlCallback(const rio_control_node::Motor_Control& msg)
+{
+
+}
+
 
 int main(int argc, char **argv)
 {
@@ -122,7 +204,12 @@ int main(int argc, char **argv)
 
 	runThread = true;
 	std::thread heartbeatThread(&run_heartbeat_handler);
+    std::thread sendDataThread(&send_data_handler);
 	
+	ros::Subscriber motorStatus = node->subscribe("MotorStatus", 10, motorStatusCallback);
+	ros::Subscriber imuData = node->subscribe("IMUData", 10, imuDataCallback);
+	ros::Subscriber motorConfiguration = node->subscribe("MotorConfiguration", 10, motorConfigurationCallback);
+	ros::Subscriber motorControl = node->subscribe("MotorControl", 10, motorControlCallback);
 
 	ros::spin();
 	return 0;

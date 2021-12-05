@@ -48,6 +48,11 @@ namespace ck
             return std::fmax(timeout - eTimer.hasElapsed(), 0.0);
         }
 
+        double getTimeoutPeriod() const
+        {
+            return timeout;
+        }
+
     private:
         double timeout;
         bool firstRun;
