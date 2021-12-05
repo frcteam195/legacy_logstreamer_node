@@ -10,14 +10,15 @@ namespace ck
     public:
         ElapsedTimer() {};
         void start() {
-            startTime = std::chrono::system_clock::now();
+            startTime = std::chrono::high_resolution_clock::now();
         };
 
         double hasElapsed() {
-            return (std::chrono::system_clock::now() - startTime).count();
+            std::chrono::duration<double, std::nano> d = (std::chrono::high_resolution_clock::now() - startTime);
+            return d.count() / 1000000000.0;
         };
     private:
-        std::chrono::_V2::system_clock::time_point startTime;
+        std::chrono::_V2::high_resolution_clock::time_point startTime;
     };
 
     class TimeoutTimer {
