@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include "ReportRequestor.hpp"
 
 #define PORT     5809
 #define MAXLINE 1024
@@ -45,7 +46,7 @@ void handlePacket(const OSCPP::Server::Packet& packet, sockaddr &recvFromAddr)
         // Directly compare message address to string with operator==.
         // For handling larger address spaces you could use e.g. a
         // dispatch table based on std::unordered_map.
-        if (msg == "/heartbeat")
+        if (msg == "/ReportRequestor")
 		{
             sockaddr_in *tAddr = (sockaddr_in *)(&recvFromAddr);
             std::string ipAddr(inet_ntoa(tAddr->sin_addr));
