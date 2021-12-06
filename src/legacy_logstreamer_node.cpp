@@ -72,7 +72,7 @@ void handlePacket(const OSCPP::Server::Packet& packet, sockaddr &recvFromAddr)
         // Directly compare message address to string with operator==.
         // For handling larger address spaces you could use e.g. a
         // dispatch table based on std::unordered_map.
-        if (msg == "/ReportRequestor")
+        if (msg == "/RegisterRequestor")
 		{
             sockaddr_in *tAddr = (sockaddr_in *)(&recvFromAddr);
             tAddr->sin_family = AF_INET;
@@ -84,7 +84,10 @@ void handlePacket(const OSCPP::Server::Packet& packet, sockaddr &recvFromAddr)
             }
 
             std::lock_guard<std::mutex> lock(lockMutex);
-            mReportRequestorSet.add(*tAddr);
+            if (mReportRequestorSet.add(*tAddr))
+            {
+                ROS_INFO("Added client: %s", sockaddrToIPStr(recvFromAddr).c_str());
+            }
         }
 		else
 		{
@@ -151,13 +154,14 @@ void send_data_handler()
 	while (runThread)
 	{
 		{
-            size_t packetSize = constructPacket(buffer, BUFSIZE);
 			std::lock_guard<std::mutex> lock(lockMutex);
+            size_t packetSize = constructPacket(buffer, BUFSIZE);
             mReportRequestorSet.forEach([&](ReportRequestor* r)
             {
                 sockaddr_in s = r->getIpAddr();
                 size_t bytesSent = sendto(fd, buffer, packetSize, 0, (struct sockaddr*)&s, sizeof(s));
             });
+            mReportRequestorSet.removeExpiredEntries();
 		}
 		rate.sleep();
 	}

@@ -13,13 +13,19 @@ ReportRequestorSet::~ReportRequestorSet()
     }
 }
 
-void ReportRequestorSet::add(sockaddr_in &ipAddr)
+bool ReportRequestorSet::add(sockaddr_in &ipAddr)
 {
     std::lock_guard<std::mutex> lock(mRequestorLock);
     if (!mRequestorSet.count(ipAddr.sin_addr.s_addr))
     {
         mRequestorSet[ipAddr.sin_addr.s_addr] = new ReportRequestor(ipAddr);
+        return true;
     }
+    else
+    {
+        mRequestorSet[ipAddr.sin_addr.s_addr]->pumpHeartbeat();
+    }
+    return false;
 }
 
 void ReportRequestorSet::removeExpiredEntries()

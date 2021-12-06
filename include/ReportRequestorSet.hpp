@@ -17,7 +17,7 @@ private:
 public:
     ReportRequestorSet();
     ~ReportRequestorSet();
-    void add(sockaddr_in &ipAddr);
+    bool add(sockaddr_in &ipAddr);
     void removeExpiredEntries();
     void forEach(std::function<void(ReportRequestor*)> action);
 };
